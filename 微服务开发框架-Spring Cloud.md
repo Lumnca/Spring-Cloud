@@ -6,11 +6,15 @@
 
 :arrow_down:[服务提供者与消费者](#a1)
 
+:arrow_down:[为项目整合Spring Boot Actuator](#a2)
+
+:arrow_down:[硬编码问题](#a3)
+
 <b id="a1"></b>
 
 ### :arrow_up_small: 服务提供者与消费者
 
-:arrow_down:[服务提供者与消费者](#a1)
+:arrow_up:[返回目录](#t)
 
 使用微服务构建的是分布式系统，微服务之间通过网络进行通信，我们使用服务提供者与服务消费者来描述微服务之间的调用关系。
 
@@ -276,3 +280,150 @@ public class index {
 ```
 
 这样就可以完成了整个微服务的构建。
+
+<b id="a2"></b>
+
+### :arrow_up_small: 为项目整合Spring Boot Actuator
+
+:arrow_up:[返回目录](#t)
+
+前面介绍spring Boot时我们知道提供了项目监控端点，我们可以通过这些端点来查看程序信息，步骤也非常简单，如下：
+
+在前面的基础上添加依赖：
+
+```xml
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+```
+
+一个是actuator，一个是安全管理security。
+
+添加额外的配置信息：
+
+```java
+management.endpoint.shutdown.enabled=true
+management.endpoints.web.base-path=/
+management.endpoints.web.exposure.include=*
+management.endpoint.health.show-details=when_authorized
+management.endpoint.health.roles=ADMIN
+
+spring.security.user.name=admin
+spring.security.user.password=123
+spring.security.user.roles=ADMIN
+```
+
+一个适用于登录账号，一个是监控信息配置设置。弄好之后访问`http://localhost:8080/health`即可看到如下信息显示：
+
+```javascript
+{ 
+    "status":"UP",
+    "details":
+          { "diskSpace":
+               {  "status":"UP",
+                   "details":
+                   {
+                       "total":338773929984,
+                       "free":105464279040,
+                       "threshold":10485760}
+                   },
+                   "db":
+                   {
+                      "status":"UP",
+                      "details":
+                         {
+                             "database":"MySQL",
+                             "hello":1
+                         }
+               }
+           }
+}
+```
+
+当然也可以配置其他信息如info端口：
+
+```
+info.app.name=@project.artifactId@
+info.app.mysql=@mysql.version@
+```
+
+
+可以根据自己的需要配置你所需要的端点。
+
+<b id="a3"></b>
+
+### :arrow_up_small: 硬编码问题
+
+:arrow_up:[返回目录](#t)
+
+上面我们已经完成了一个简单的微服务系统，但是存在着一些问题，如下：
+
+```java
+@RestController
+public class index {
+    @Autowired
+    RestTemplate restTemplate;
+    @GetMapping("/getUser/{id}")
+    public User get(@PathVariable Integer id){
+        return restTemplate.getForObject("http://localhost:8080/users/"+id,User.class);
+    }
+    @GetMapping("/buy/{id}")
+    public String buy(@PathVariable Integer id){
+        User user =  restTemplate.getForObject("http://localhost:8080/users/"+id,User.class);
+        if(user.getBalance().doubleValue() >= 90.00){
+            double f = user.getBalance().doubleValue()-90.00;
+            return "购票成功！余额："+f;
+        }
+        else {
+            return "购票失败！余额不足";
+        }
+    }
+}
+```
+
+可以知道我们的网络提供者IP地址是固定的，当然我们也可以添加到配置文件中：
+
+```java
+user:
+  userServiceUrl: http://localhost:8080/users/
+```
+
+然后再来引用这个：
+
+```
+  @Value("${user.userServiceUrl}")
+    private String userServiceUrl;
+    @Autowired
+    RestTemplate restTemplate;
+    @GetMapping("/buy/{id}")
+    public String buy(@PathVariable Integer id){
+        System.out.println(userServiceUrl+id);
+        User user =  restTemplate.getForObject(userServiceUrl+id,User.class);
+
+        if(user.getBalance().doubleValue() >= 90.00){
+            double f = user.getBalance().doubleValue()-90.00;
+            return "购票成功！余额："+f;
+        }
+        else {
+            return "购票失败！余额不足";
+        }
+    }
+```
+
+传统的做法确实是这样的，但是这样有一个问题那就是当服务提供者的网络地址发生变化时，那么就需要重新修改程序，zheh
+
+
+
+
+
+
+
+
+
+
+
