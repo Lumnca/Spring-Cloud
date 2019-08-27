@@ -395,7 +395,7 @@ user:
 
 然后再来引用这个：
 
-```
+```java
   @Value("${user.userServiceUrl}")
     private String userServiceUrl;
     @Autowired
