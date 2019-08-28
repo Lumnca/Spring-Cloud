@@ -1,4 +1,4 @@
-# 	:triangular_flag_on_post :负载均衡Ribbon
+# 	:triangular_flag_on_post:负载均衡Ribbon
 
 <p id="t"></p>
 
@@ -74,3 +74,9 @@ public class index {
 ```
 
 然后运行这几个项目，访问`http://localhost:100/getServer`多次刷新页面，可以看到端口的变化，可以自动每次访问的服务器都是不同的端口。
+
+
+
+
+
+
