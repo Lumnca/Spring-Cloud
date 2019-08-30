@@ -6,6 +6,10 @@
 
 :arrow_down:[使用Hystrix实现容错](#a2)
 
+:arrow_down:[Feign使用Hystrix](#a3)
+
+:arrow_down:[使用Hystrix Dashboard可视化监控数据](#a4)
+
 <b id="a1"></b>
 
 ### :arrow_up_small: 实现容错的手段
@@ -123,3 +127,204 @@ keepAliveTimeMinutes 此属性设置保持活动时间，以分钟为单位。
 
 具体信息可以参考[Hystrix配置信息](https://github.com/Netflix/Hystrix/wiki/Configuration)
 
+如果你想获取异常原因，只需要在回退的方法上加一个Throwable参数即可，如下：
+
+```java
+    public User defaultUser(Integer id,Throwable throwable){
+        System.out.println(throwable.getMessage());
+        User user = new User();
+        user.setId(-1);
+        user.setName("默认用户");
+        user.setUsername("默认角色");
+        return user;
+    }
+```
+
+如果你并不想触发回退方法，可以添加属性ignoreExceptions，如下：
+
+```java
+    @HystrixCommand(fallbackMethod = "defaultUser",ignoreExceptions = Exception.class)
+    @GetMapping("/user/{id}")
+    public User user(@PathVariable("id") Integer id){
+        return  this.userFeignClient.findById(id);
+    }
+
+    public User defaultUser(Integer id,Throwable throwable){
+        System.out.println(throwable.getMessage());
+        User user = new User();
+        user.setId(-1);
+        user.setName("默认用户");
+        user.setUsername("默认角色");
+        return user;
+    }
+ ```
+ 
+ 像这样就不会调用回退方法。
+ 
+ **断路器的状态与监控**
+ 
+ 之前我们说过应用监控的Actuator，断路器的状态也会暴露在Actuator提供的/health端点中，这样就可以直接地了解断路器的状态，添加Actuator依赖就会在health端口中显示，。
+ 
+ 我们发现，尽管执行了回退逻辑，返回了默认用户，但此时日时srx的状态依然是UP，这是因为我们的失败率还没有达到阀值（默认是5s内20次失败。这是很多初学者会遇到的误区，这里再次强调—执行回退逻辑并不代表断路器已经打开。请求失败、超时、被拒绝以及断路器打开时等都会执行回退逻辑。
+ 
+ 所以要持续快速地访问网址直到请求快速返回，才会显示断路器打开的结果。除此之外Hystrix还提供了监控，在添加上面的依赖之后，访问`http://localhost:100/hystrix.stream`可以看到容错信息。
+ 
+ ***
+ 
+<b id="a3"></b>
+
+### :arrow_up_small: Feign使用Hystrix
+
+:arrow_up:[返回目录](#t)
+
+前面是通过实现了注解属性来实现回退的，Feign是以借口形式的，它没有方法实体，所以前面的不适合用于Feign，要实现Feign整合Hystrix，只需要开启这个设置就行了，因为Feign已经整合了Hystrix的只需要设置feign.hystrix.enabled=true即可。然后在接口处声明回退类：
+
+```java
+@FeignClient(name = "UserServer",fallback = UserFeignClientFallBack.class)
+public interface UserFeignClient {
+    @RequestMapping(value = "/users/{id}",method = RequestMethod.GET)
+     User findById(@PathVariable("id") Integer id);
+}
+```
+
+构建回退类：
+
+```java
+@Component
+public class UserFeignClientFallBack implements  UserFeignClient{
+
+    @Override
+    public User findById(Integer id) {
+        return new User();
+    }
+}
+
+```
+ 
+ 启动测试得到的是一样的效果。还可以异常检测，只不过这时使用的是fallbackFactory属性如下：
+ 
+ ```java
+ @FeignClient(name = "UserServer",fallbackFactory = UserFeignClientFallBack.class)
+public interface UserFeignClient {
+    @RequestMapping(value = "/users/{id}",method = RequestMethod.GET)
+     User findById(@PathVariable("id") Integer id);
+    @RequestMapping(value = "/test",method = RequestMethod.GET)
+    String test();
+}
+ ```
+ 
+ 对应的处理类：
+ 
+ ```java
+ @Component
+public class UserFeignClientFallBack implements FallbackFactory<UserFeignClient> {
+    @Override
+    public UserFeignClient create(final Throwable throwable) {
+        return new UserFeignClient() {
+            //应该把异常参数在各个方法中使用
+            @Override
+            public User findById(Integer id) {
+                System.out.println("异常信息:"+throwable.getMessage());
+                return new User();
+            }
+
+            @Override
+            public String test() {
+                System.out.println("异常信息:"+throwable.getMessage());
+                return "TEST";
+            }
+        };
+    }
+}
+ ```
+ 
+
+这样就可以完成信息异常报出了，这里提供了一个正常的test的方法，该方法在没有报错的情况是不显示异常处理信息的，因为该方法并没有回退。
+
+如果并不想Feign使用Hystrix，可以禁用Hystrix。为指定的用户程序禁用需要添加配置类，并引用：
+
+```java
+//为指定Feign客户端禁用Hystix：借助Feign的自定义配置，可轻松为指定名称的Feign客户端禁用Hystrix。例如：
+@Configuration 
+public class Feign0isableystrixconfiguration{
+   @Bean
+   @Scope（"prototype"）
+   public Feign.Builder feignBuilder（）{
+        return Feign.builder（）；
+   }      
+ }   
+ ```
+想要禁用Hystrix的@FeignClient，引用该配置类即可，例如：
+
+```java
+@FeignClient（name="user"，configuration=FeignDisableHystrixconfiguration.class）
+        public interface UserFeignClient{
+              //...
+        }
+ ```       
+全局禁用Hystrix：也可为Feign全局禁用Hystix。只需在application.yml中配置feignhystrix.enabled=false即可。
+
+<b id="a4"></b>
+
+### :arrow_up_small: 使用Hystrix Dashboard可视化监控数据
+
+:arrow_up:[返回目录](#t)
+
+前面说的应用监控都是端口化配置，对于Hystrix，他也有图形化界面操控，如下
+
+引入依赖：
+
+```xml
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-hystrix-dashboard</artifactId>
+        </dependency>
+```
+
+编写启动类：
+
+```java
+@SpringBootApplication
+@EnableHystrixDashboard
+public class start {
+    public static  void main(String[] args){
+        SpringApplication.run(start.class,args);
+    }
+}
+```
+ 
+ 然后直接通过http://localhost:100/hystrix就可以访问，只不过需要在url一栏输入你的Hystrix测试端口信息，输入后看到如下信息
+ 
+ ![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a5.png)
+ 
+ 在指标信息中Host，Cluster是访问与请求的延迟的时间，访问量越大，时间越高。
+
+这是单一一个实例查询，这样做有点慢，需要一个一个的查，可以使用Turbine来实现集群管理。如下添加依赖：
+
+```xml
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-turbine</artifactId>
+        </dependency>
+```
+
+在开始类启动注解：
+
+```java
+@SpringBootApplication
+@EnableEurekaClient
+@EnableFeignClients
+@EnableCircuitBreaker
+@EnableTurbine
+@EnableHystrixDashboard
+public class start {
+    public static  void main(String[] args){
+        SpringApplication.run(start.class,args);
+    }
+}
+
+```
+ 
+ 
+ 
+ 
