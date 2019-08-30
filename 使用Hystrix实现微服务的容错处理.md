@@ -177,7 +177,7 @@ keepAliveTimeMinutes 此属性设置保持活动时间，以分钟为单位。
 
 :arrow_up:[返回目录](#t)
 
-前面是通过实现了注解属性来实现回退的，Feign是以借口形式的，它没有方法实体，所以前面的不适合用于Feign，要实现Feign整合Hystrix，只需要开启这个设置就行了，因为Feign已经整合了Hystrix的只需要设置feign.hystrix.enabled=true即可。然后在接口处声明回退类：
+前面是通过实现了注解属性来实现回退的，Feign是以借口形式的，它没有方法实体，所以前面的不适合用于Feign，要实现Feign整合Hystrix，只需要开启这个设置就行了，因为Feign已经整合了Hystrix的只需要设置**feign.hystrix.enabled=true**即可。然后在接口处声明回退类：
 
 ```java
 @FeignClient(name = "UserServer",fallback = UserFeignClientFallBack.class)
@@ -293,7 +293,7 @@ public class start {
 }
 ```
  
- 然后直接通过http://localhost:100/hystrix就可以访问，只不过需要在url一栏输入你的Hystrix测试端口信息，输入后看到如下信息
+ 然后直接通过`http://localhost:100/hystrix`就可以访问，只不过需要在url一栏输入你的Hystrix测试端口信息，输入后看到如下信息
  
  ![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a5.png)
  
@@ -311,19 +311,58 @@ public class start {
 在开始类启动注解：
 
 ```java
-@SpringBootApplication
-@EnableEurekaClient
-@EnableFeignClients
-@EnableCircuitBreaker
 @EnableTurbine
-@EnableHystrixDashboard
 public class start {
     public static  void main(String[] args){
         SpringApplication.run(start.class,args);
     }
 }
-
 ```
+
+然后编写文件：
+
+```java
+server:
+  port: 100
+spring:
+  application:
+    name: BuyServer
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    prefer-ip-address: true
+feign:     #开启服务
+  hystrix:
+    enabled: true
+turbine:
+  cluster-name-expression: "'default'"
+  app-config: UserServer,BuyServer  #--引用组件上的服务
+```
+ 
+ 
+ 然后在`http://localhost:100/hystrix`输入`http://localhost:100/turbine.stream`就可以看到集群信息。当然要想其他项目具有HyStrix功能，需要加入依赖：
+ 
+```xml
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-hystrix</artifactId>
+            <version>2.0.3.RELEASE</version>
+        </dependency>
+```
+
+并在启动类中开启@EnableCircuitBreaker注解，这样就可以使用/hystrix.stream端口监控。
+
+这里是由于方便我把所有的服务都写在一个项目中，可以根据自己需要重新写一个项目并加入。
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
  
  
  
