@@ -4,6 +4,10 @@
 
 :arrow_down:[编写Zuul微服务网关](#a1)
 
+:arrow_down:[管理端点](#a2)
+
+:arrow_down:[路由配置详解](#a3)
+
 <b id="a1"></b>
 
 ### :arrow_up_small: 编写Zuul微服务网关
@@ -109,6 +113,117 @@ eureka:
 ![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a8.png)
 
 说明Zuul已经整合了HyStrix
+
+****
+
+<b id="a2"></b>
+
+### :arrow_up_small: 管理端点
+
+:arrow_up:[返回目录](#t)
+
+当@EnableZuulProxy注解和Actuator一起使用时，Zuul会暴露链两个端点：/routes，/filters借助这两个端点我们可以更清楚，更方直观地查看管理Zuul。
+
+**routes端点**
+
+使用GET方法访问可以返回Zuul当前映射的路由表列表。使用POST方法访问端点会强制刷新当前列表路由表。还可以使用`/routes?format=details`查看更多详细信息。
+
+由于zuul已经包含了actuator，所以这里不需要添加依赖，只需要修改配置文件即可：
+
+```java
+management:
+  security:
+    enabled: false
+```
+
+然后访问`http://localhost:8762/routes`可以看到如下信息：
+
+```java
+{"/server1/**":"server1","/buyserver/**":"buyserver","/zuul/**":"zuul","/userserver/**":"userserver"}
+```
+
+说明可以通过这些url路径来访问不同的信息。当然也可以访问`http://localhost:8762/routes?format=details`来查看更多详细信息。
+
+**filters端点**
+
+filters端点提供了当前所有过滤器的详情，并按照类型分类。
+
+***
+
+<b id="a3"></b>
+
+### :arrow_up_small: 路由配置详解
+
+:arrow_up:[返回目录](#t)
+
+前面我们可以通过url访问不同的服务，但是现在我们想修改url路径格式，或者只想让部分服务生效，那么就需要配置路由。
+
+**自定义微服务路径**
+
+修改配置文件，添加如下内容
+
+```
+zuul:
+  routes:
+    UserServer: /us/**
+    Server1: /ms/**
+    BuyServer: /bs/**
+```
+
+上面就是将以服务组件名的url自定义为我们想要url索引，所以接下里就可以使用`http://localhost:8762/ms/index`方式来索引不同的方法。
+
+**忽略指定微服务**
+
+```
+zuul:
+  routes:
+    UserServer: /us/**
+    BuyServer: /bs/**
+  ignored-services: Server1,UserServer
+```
+
+ignored-services可以忽略指定的服务，但是routes又会自定义url，当两个都存在时 routes可以忽略 ignored-services屏蔽的url，所以UserServer可以访问。
+
+所以可以忽略全部只开启一个：
+
+```
+zuul:
+  routes:
+    BuyServer: /bs/**
+  ignored-services: '*'     --*代表全部
+```
+
+还可以忽略更细微的路径比如某服务下的/index路径可以如下：
+
+```java
+zuul:
+  ignored-services: /**/index/**
+```
+
+忽略所有/index/的路径。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
