@@ -106,7 +106,7 @@ eureka:
 由于Zuul自带Ribbon组件效果，所以使用Ribbon可以达到负载均衡的效果。不仅如此，Zuul还具有Hystrix监控信息如下,打开Hystrix访问界面，输入
 `http://localhost:8762/hystrix.stream`就可以看到如下各个服务的信息：
 
-![](![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a8.png))
+![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a8.png)
 
 说明Zuul已经整合了HyStrix
 
