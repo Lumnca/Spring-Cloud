@@ -342,7 +342,11 @@ turbine:
 ```
  
  
- 然后在`http://localhost:100/hystrix`输入`http://localhost:100/turbine.stream`就可以看到集群信息。当然要想其他项目具有HyStrix功能，需要加入依赖：
+ 然后在`http://localhost:100/hystrix`输入`http://localhost:100/turbine.stream`就可以看到集群信息。
+ 
+ ![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a6.png)
+ 
+ 当然要想其他项目具有HyStrix功能，需要加入依赖：
  
 ```xml
         <dependency>
