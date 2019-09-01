@@ -8,7 +8,9 @@
 
 :arrow_down:[路由配置详解](#a3)
 
-:arrow_down:[-](#a4)
+:arrow_down:[Zuul安全与Header](#a4)
+
+:arrow_down:[Zuul上传文件](#a5)
 
 <b id="a1"></b>
 
@@ -204,28 +206,140 @@ zuul:
 
 忽略所有/index/的路径。
 
+<b id="a4"></b>
+
+### :arrow_up_small: Zuul安全与Header
+
+:arrow_up:[返回目录](#t)
+
+一般来说，可以在同一个系统中的服务之间共享Header。不过应尽量防止让一些敏感的Header外泄，因此在许多场景下，需要通过为路径指定一些列敏感Header列表，如：
+
+```java
+zuul:
+  sensitive-headers: Cookie,Set-Cookie,Authorization
+```
+
+如上指定全局的敏感列表，如果是单一项目，在服务名称下再写属性即可：
+
+```yml
+zuul:
+  routes:
+    BuyServer:
+     sensitive-headers: Cookie,Set-Cookie,Authorization
+```
 
 
+**忽略Header**
 
+可以使用zuul.ignored-headers来忽略一些属性：
 
+```java
+zuul:
+  ignored-headers: Header1,Header2
+```
 
+这样设置后，Header1，Header2就不会传播到其他服务中。默认情况下，zulignoredheaders是空值，但如果Spring Securiy在项目的cdaspath中，那么zxulignored-headers的默认值就是Pragma，cache-Control，X-frane-ptions，X-Content-Type-0ptions，X-xS-Protection，Expires。所以，当Spring Security在项目的claspath中，同时又需要使用下游微服务的Sing securty 的Hesder时，可以将zuul.igoreseurity-Headers 设置为false。
 
+<b id="a5"></b>
 
+### :arrow_up_small: Zuul上传文件
 
+:arrow_up:[返回目录](#t)
 
+对于小于1M以内文件上传，无须任何处理，即可正常上传，对于大于10M以上的文件上传需要为上传路径添加zuul路径前缀，也可以使用zuul.servlet-path自定义路径。
 
+也就是说，假设`zuul.routes.microservice-file-upload =/microservice-file-upload/**`如果`http://{H0ST]：[PORT}/upload` 是微服务microservice-file-upload的上传路径，则可使用Zuul的`/zuul/microservice-file-upload/upload`路径上传大文件。
+如果Zuul使用了Ribbon做负载均衡，那么对于超大的文件（例如500M），需要提升时设置，例如：
 
+#上传大文件时，要将超时时间设长一些，否则会报超时异常。
 
+```java
+hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds：60000
+    ribbon：ConnectTimeout：3000
+        ReadTimeout：60000
+```
 
+下面编写一个文件上传微服务，在前面的zuul工程中添加web依赖：
 
+```xml
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+            <version>1.4.0.RELEASE</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-zuul</artifactId>
+            <version>1.4.0.RELEASE</version>
+        </dependency>
+    </dependencies>
+```
 
+编写控制器：
 
+```java
+@RestController
+public class index {
+    @RequestMapping(value = "/fileUpload",method = RequestMethod.POST)
+    public @ResponseBody
+    String handleFileUpload(@RequestParam(value = "file",required = true)MultipartFile file)throws IOException {
+        byte[] bytes = file.getBytes();
+        File fileToSave = new File( ClassUtils.getDefaultClassLoader().getResource("")
+                .getPath()+"static/"+ file.getOriginalFilename());
+        FileCopyUtils.copy(bytes,fileToSave);
+        return fileToSave.getAbsolutePath();
+    }
+}
+```
 
+ ClassUtils.getDefaultClassLoader().getResource("").getPath()为获取class绝对路径。
+ 
+ 然后修改配置文件：
+ 
+ ```java
+ server:
+  port: 8762
+spring:
+  application:
+    name: Zuul
+  http:
+    multipart:
+      max-file-size: 200Mb
+      max-request-size: 2500Mb
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+management:
+  security:
+    enabled: false
+zuul:
+  routes:
+    BuyServer: /bs/**
+ ```
 
+添加一个上传界面：
 
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <form action="/fileUpload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" ><br>
+        <input type="submit" value="提交">
+    </form>
+</body>
+</html>
+```
 
-
-
-
-
+上传成功表明配置成功！
 
