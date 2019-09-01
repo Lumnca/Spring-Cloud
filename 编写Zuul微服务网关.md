@@ -12,6 +12,8 @@
 
 :arrow_down:[Zuul上传文件](#a5)
 
+:arrow_down:[Zuul的过滤器](#a6)
+
 <b id="a1"></b>
 
 ### :arrow_up_small: 编写Zuul微服务网关
@@ -342,4 +344,32 @@ zuul:
 ```
 
 上传成功表明配置成功！
+
+<b id="a6"></b>
+
+### :arrow_up_small: Zuul的过滤器
+
+:arrow_up:[返回目录](#t)
+
+Zuul大部分功能都是通过过滤器来实现的。zuul中定义了4种标准过滤器类型，这些过滤器类型对应请求的典型生命周期。
+
+* PRE：这种过滤器在请求被路由之前调用。可利用这种过滤器实现身份验证，在集群中选择请求的微服务，记录调试信息等。
+
+* ROUTING： 这种过滤器将请求路由到微服务。这种过滤器用于构建发送给微服务的请求，并使用Apache HttpClient 等请求微服务。
+
+* POST： 这种过滤器在路由到微服务以后执行，这种过滤器可以用来为响应添加标准的Http Header，收集统计信息和指标，将响应从微服务发送给微服务。
+
+* ERROR： 在其他阶段发送错误时执行该过滤器。
+
+除了默认的过滤器类型，Zuul还允许创建自定义的过滤器类型。例如，可以定制一种STATIC类型的过滤器，直接在Zuul中生成响应，而不将请求转发到后端的微服务。
+
+**内置过滤器详解**
+
+Spring Cloud默认为Zuul编写并启用了一些过滤器，这些过滤器有什么作用呢？我们不妨结合@EnableZuulServer，@EnableZuulProxy两个注解进行讨论。
+
+可将@EnableZuulProxy 简单理解为@EnableZulserver的增强版。事实上，当zm1与Eureka、Ribbon 等组件配合使用时，@EnableZuul.Proxy是我们最常用的注解，本书前文所使用的也是@EnableZuulServer。
+
+我们先来了解一下什么是RequestContext，其用于在过滤器之间传递消息，它的数据保存在每个请求的ThreadLocal中。它用于存储请求路由到哪里，错误，HTTPServletRequest，HTTPServletResponse等信息，RequestContext扩展了。所以任何数据都可以存储在RequestContext中。
+
+
 
