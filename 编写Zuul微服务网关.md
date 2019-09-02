@@ -16,6 +16,8 @@
 
 :arrow_down:[编写过滤器](#a7)
 
+:arrow_down:[Zuul的容错与回退](#a7)
+
 <b id="a1"></b>
 
 ### :arrow_up_small: 编写Zuul微服务网关
@@ -557,3 +559,131 @@ public class start {
 
 * run：过滤器的具体逻辑。本例中让它打印了请求的HTTP方法以及请求的地址。
 
+Pre类型的过滤器都是在请求之间运行的，我们还可以写一个post类型的过滤器在请求之后运行：
+
+```java
+public class PostRequestFilter extends ZuulFilter {
+    @Override
+    public String filterType() {
+        return FilterConstants.POST_TYPE;
+    }
+
+    @Override
+    public int filterOrder() {
+        return 1;
+    }
+
+    @Override
+    public boolean shouldFilter() {
+        return true;
+    }
+
+    @Override
+    public Object run() {
+        RequestContext ctx = RequestContext.getCurrentContext();
+
+        HttpServletRequest request = ctx.getRequest();
+        Enumeration<String> httpHeadrInfo =  request.getHeaderNames();
+        System.out.println("Http头部信息");
+        while (httpHeadrInfo.hasMoreElements()){
+            String info = httpHeadrInfo.nextElement();
+            System.out.println(info+":"+request.getHeader(info));
+        }
+        return null;
+    }
+}
+```
+
+自行添加在启动类上运行的Bean，这时点击运行可以看到：
+
+```
+请求方法：GET
+请求路径：/zuul/index
+请求IP：0:0:0:0:0:0:0:1
+
+...
+
+Http头部信息
+host:localhost:8762
+connection:keep-alive
+cache-control:max-age=0
+upgrade-insecure-requests:1
+user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36
+accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3
+accept-encoding:gzip, deflate, br
+accept-language:zh-CN,zh;q=0.9,en;q=0.8
+cookie:.AspNet.Consent=yes
+```
+
+说明post后执行。pre先执行。可以利用过滤器完成很多的处理比如安全认证，灰度发布，限流等。这里就不一一介绍了。可以参考网上的资料。当然禁用过滤器除了上面的代码方法外，还可以通过zuul.<SimpClassName>.<FilterType>.disable=true禁用SimpClassName所对应的过滤器类。
+
+***
+
+<b id="a7"></b>
+
+### :arrow_up_small: Zuul的容错与回退
+
+:arrow_up:[返回目录](#t)
+
+前面知道了zuul已经整合了hystrix所以我们可以在解监控界面上查看信息，但是如果其中一个服务被关闭了或者不能启用，那么怎么执行回退呢？要想为zuul添加回退功能，需要实现 ZuulFallbackProvider 接口,并提供一个 ClientHttpResponse作为回响。
+
+```java
+@Component
+public class MyFallbackProvider implements FallbackProvider {
+    @Override
+    public ClientHttpResponse fallbackResponse(Throwable cause) {
+        if(cause instanceof HystrixTimeoutException){
+            return response(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        else {
+            return this.fallbackResponse();
+        }
+    }
+
+    @Override
+    public String getRoute() {
+        return "*";
+    }
+
+    @Override
+    public ClientHttpResponse fallbackResponse() {
+        return null;
+    }
+    private ClientHttpResponse response(final HttpStatus status){
+        return new ClientHttpResponse() {
+            @Override
+            public HttpStatus getStatusCode() throws IOException {
+                return status;
+            }
+
+            @Override
+            public int getRawStatusCode() throws IOException {
+                return status.value();
+            }
+
+            @Override
+            public String getStatusText() throws IOException {
+                return status.getReasonPhrase();
+            }
+
+            @Override
+            public void close() {
+
+            }
+
+            @Override
+            public InputStream getBody() throws IOException {
+                return new ByteArrayInputStream("服务不可用请稍后再试！".getBytes());
+            }
+
+            @Override
+            public HttpHeaders getHeaders() {
+                HttpHeaders headers = new HttpHeaders();
+                MediaType mt = new MediaType("application","json", Charset.forName("UTF-8"));
+                headers.setContentType(mt);
+                return  headers;
+            }
+        };
+    }
+}
+```
