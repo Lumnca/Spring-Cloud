@@ -14,6 +14,8 @@
 
 :arrow_down:[Zuul的过滤器](#a6)
 
+:arrow_down:[编写过滤器](#a7)
+
 <b id="a1"></b>
 
 ### :arrow_up_small: 编写Zuul微服务网关
@@ -371,5 +373,187 @@ Spring Cloud默认为Zuul编写并启用了一些过滤器，这些过滤器有�
 
 我们先来了解一下什么是RequestContext，其用于在过滤器之间传递消息，它的数据保存在每个请求的ThreadLocal中。它用于存储请求路由到哪里，错误，HTTPServletRequest，HTTPServletResponse等信息，RequestContext扩展了。所以任何数据都可以存储在RequestContext中。
 
+**@EnableZuulServer 所启用的过滤器**
 
+>pre类型过滤器
+
+* 1.ServletDetectionFilter：该过滤器用于检查请求是否通过Spring Dispatcher。检查后，通过FilterConstants.IS_DISPATCHER_SERVLET_REQUEST_KEY设置布尔值。
+* 2.FormBodyWrapperFilter：解析表单数据，并为请求重新编码。
+* 3.DebugFilter：顾名思义，调试用的过滤器。当设置zuul.include-debug-header=true或设置zuul.debug.request=true，并在请求时加上了debug=true的参数，例如`$ZUUL_HOST：ZUUL_PORT/some-path？debug=true`就会开启该过滤器。该过滤器会把 RequestContext.setDebugRouting（）以及RequestContext.setDebugRequest（）设为true。
+
+>route类型过滤器
+
+SendForwardFilter：该过滤器使用Servlet RequestDispatcher转发请求，转发位置存储在Requestcontext的属性`FilterConstants.FORWARD_TO._KEY`中。这对转发到Zuul自身的端点很有用。可将路由设成：
+
+```
+zuu1：
+  routes：
+    abc：
+      path:/path-a/**
+      ur1：forward:/path-b
+```
+
+然后访问`ZUUL_H0ST:ZUUL_PORT/path-a/**`观察该过滤器的执行过程。
+
+>post类型过滤器
+
+SendRlesponseFilter：将代理请求的响应写入当前响应。
+
+>error 类型过滤器
+
+SendErrorFilter：若RequestContext.getThrowable（）不为null，则默认转发到/error，也可以设置error.path属性来修改默认的转发路径。
+
+**@EnableZuulProxy所启用的过滤器**
+
+如果使用注解@nableZulProxy，那么除上述过滤器之外，Spring Cloud 还会安装和过滤器。
+
+>pre类型过滤器
+
+Prabecorationfiter：该过滤器根据提供的outelocator确定路由到的地址，以及怎样去路由。同时，该过滤器还为下游请求设置各种代理相关的header。
+
+>route 类型过滤器
+
+1.RibbonRoutingFilter：该过滤器使用Ribbon、Hystrix和可插拔的HTTP客户端发送请求。serviceld 在RequestContext的属性FilterConstants.SERVICE_ID.KEY中。该过滤器可使用如下这些不同的HTTP客户端。
+
+* Apache HttpClient：默认的HTTP客户端。
+* Squareup OkHttpClient v3：若需使用该客户端，需保证com.squareup.okhttp3的依赖在classpath中，并设置ribbon.okhttp.enabled=true。
+
+* Netflix Ribbon HTTP Client：设置ribbon.restclient.enabled=true即可启用该HTTP客户端。该客户端有一定限制，例如不支持PATCH方法，另外，它有内置的重试机制。
+
+2.SimpleHostRoutingFilter：该过滤器通过Apache HttpClient向指定的URL发送请求。在RequestContext.getRouteHost（）中。
+
+
+建议阅读以上过滤器的源码，将对Zuul有一个更加深入的认识。其中，最重要的过滤器当属RibbonRoutingFilter了，因为整合Ribbon、Hystrix以及发送请求都在该过滤器中完成。
+
+形如如下内容的路由不会经过RibbonRoutingFilter，而是走Simplelost-RoutingFilter。
+
+```
+zuu1：
+  routes：
+    user-route：
+      ur1：http://localhost：8000/
+      path:/user/**
+```
+可借助/filters端点查看过滤器详情。目前FormBodyWrapperFilter的代码实现并不高效，若你的应用没有Form表单提交，可禁用该过滤器，从而获取更好的性能表现。
+
+<b id="a7"></b>
+
+### :arrow_up_small: 编写过滤器
+
+:arrow_up:[返回目录](#t)
+
+下面介绍一个Zuul过滤器，编写过滤器比较简单，只需要继承ZuulFilter，然后实现几个抽象方法就可以了：
+
+```java
+package com;
+
+import com.netflix.zuul.ZuulFilter;
+import com.netflix.zuul.context.RequestContext;
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cloud.netflix.zuul.filters.support.FilterConstants;
+
+import javax.servlet.http.HttpServletRequest;
+
+
+public class PreRequestLogFilter extends ZuulFilter {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PreRequestLogFilter.class);
+    @Override
+    public String filterType() {
+        return FilterConstants.PRE_TYPE;
+    }
+
+    @Override
+    public int filterOrder() {
+        return FilterConstants.PRE_DECORATION_FILTER_ORDER-1;
+    }
+
+    @Override
+    public boolean shouldFilter() {
+        return true;
+    }
+
+    @Override
+    public Object run() {
+        //获取Request
+        RequestContext ctx = RequestContext.getCurrentContext();
+        HttpServletRequest request = ctx.getRequest();
+        
+        PreRequestLogFilter.LOGGER.info("请求方法："+request.getMethod()+"请求路径："+request.getRequestURI()+"请求IP："+getIpAdrress(request));
+        return  null;
+    }
+    //获取IP地址方法
+    private static String getIpAdrress(HttpServletRequest request) {
+        String Xip = request.getHeader("X-Real-IP");
+        String XFor = request.getHeader("X-Forwarded-For");
+        if(StringUtils.isNotEmpty(XFor) && !"unKnown".equalsIgnoreCase(XFor)){
+            //多次反向代理后会有多个ip值，第一个ip才是真实ip
+            int index = XFor.indexOf(",");
+            if(index != -1){
+                return XFor.substring(0,index);
+            }else{
+                return XFor;
+            }
+        }
+        XFor = Xip;
+        if(StringUtils.isNotEmpty(XFor) && !"unKnown".equalsIgnoreCase(XFor)){
+            return XFor;
+        }
+        if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+            XFor = request.getHeader("Proxy-Client-IP");
+        }
+        if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+            XFor = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+            XFor = request.getHeader("HTTP_CLIENT_IP");
+        }
+        if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+            XFor = request.getHeader("HTTP_X_FORWARDED_FOR");
+        }
+        if (StringUtils.isBlank(XFor) || "unknown".equalsIgnoreCase(XFor)) {
+            XFor = request.getRemoteAddr();
+        }
+        return XFor;
+    }
+}
+```
+
+然后在启动类上添加Bean：
+
+```java
+@EnableZuulProxy
+@SpringBootApplication
+@EnableEurekaClient
+public class start {
+    @Bean
+    public PreRequestLogFilter preRequestLogFilter(){
+        return new PreRequestLogFilter();
+    }
+    public static  void main(String[] args){
+        SpringApplication.run(start.class,args);
+    }
+}
+```
+
+运行测试`http://localhost:8762/zuul/index`
+
+可以看到：
+
+```
+请求方法：GET请求路径：/zuul/index请求IP：0:0:0:0:0:0:0:1
+```
+
+由于是本地部署，所以IP地址是那样。下面介绍该类的4和重写方法：
+
+由代码可知，自定义的ZulFiler需实现以下几个方法。
+
+* fiteriye：返回过滤器的类型。有pre、对应上文的几种过滤器。译细可D类、rote、post、eror等几种取值，分别中的注释。可以参考comnetflix.zuu1.ZuutFilter.fiterType（）
+
+*  filterOrder：返回一个int值来指定过法器的执行顺序，不同的过法器允许运行相同的数字。
+
+* shouldFilter：返回一个bolean值来判断该过滤器是否要执行，true表示执行，false表示不执行。
+
+* run：过滤器的具体逻辑。本例中让它打印了请求的HTTP方法以及请求的地址。
 
