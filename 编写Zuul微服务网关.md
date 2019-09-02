@@ -642,6 +642,7 @@ public class MyFallbackProvider implements FallbackProvider {
 
     @Override
     public String getRoute() {
+        //*代表所有路径服务
         return "*";
     }
 
@@ -672,11 +673,13 @@ public class MyFallbackProvider implements FallbackProvider {
             }
 
             @Override
+            //内容信息反馈
             public InputStream getBody() throws IOException {
                 return new ByteArrayInputStream("服务不可用请稍后再试！".getBytes());
             }
 
             @Override
+            //header设定
             public HttpHeaders getHeaders() {
                 HttpHeaders headers = new HttpHeaders();
                 MediaType mt = new MediaType("application","json", Charset.forName("UTF-8"));
@@ -687,3 +690,5 @@ public class MyFallbackProvider implements FallbackProvider {
     }
 }
 ```
+
+像这样就完成了zuul回退处理，关闭一些服务，再运行这些服务，就会看到回退信息。
