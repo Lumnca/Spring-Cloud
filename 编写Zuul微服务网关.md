@@ -16,7 +16,11 @@
 
 :arrow_down:[编写过滤器](#a7)
 
-:arrow_down:[Zuul的容错与回退](#a7)
+:arrow_down:[Zuul的容错与回退](#a8)
+
+:arrow_down:[Zuul的高可用与隔离策略线程池](#a9)
+
+:arrow_down:[](#a9)
 
 <b id="a1"></b>
 
@@ -692,3 +696,22 @@ public class MyFallbackProvider implements FallbackProvider {
 ```
 
 像这样就完成了zuul回退处理，关闭一些服务，再运行这些服务，就会看到回退信息。
+
+Zuul整合了Ribbon实现了负载均衡，而Ribbon默认是懒加载的，可能会导致首次请求较慢的问题。可以使用配置饥饿加载。
+
+```java
+zuul:
+  ribbon:
+    eager-load:
+      enabled: true
+```
+
+
+Query String 编码配置：
+
+```java
+zuul:
+  force-original-query-string-encoding: true
+```
+
+
