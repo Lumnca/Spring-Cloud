@@ -20,7 +20,6 @@
 
 :arrow_down:[Zuul的高可用与隔离策略线程池](#a9)
 
-:arrow_down:[](#a9)
 
 <b id="a1"></b>
 
@@ -623,7 +622,7 @@ cookie:.AspNet.Consent=yes
 
 ***
 
-<b id="a7"></b>
+<b id="a8"></b>
 
 ### :arrow_up_small: Zuul的容错与回退
 
@@ -714,4 +713,9 @@ zuul:
   force-original-query-string-encoding: true
 ```
 
+<b id="a9"></b>
+
+### :arrow_up_small: Zuul的高可用与隔离策略线程池
+
+:arrow_up:[返回目录](#t)
 
