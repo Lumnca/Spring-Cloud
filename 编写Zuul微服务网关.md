@@ -725,7 +725,7 @@ zuul:
 
 这是由于默认情况下Zuul的Hystrix隔离策略是SEMAPHORE,可以使用：
 
-```
+```yml
 zuul:
   ribbon-isolation-strategy: thread
 ```
@@ -733,6 +733,36 @@ zuul:
 配置可以将策略改为 thread，这样就可以看到Pool一栏的数据了。
 
 ![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a9.png)
+
+如果想添加配置名称前缀可以编写配置文件：
+
+```yml
+zuul:
+  ribbon-isolation-strategy: thread
+  thread-pool:
+    use-separate-thread-pools: true
+    thread-pool-key-prefix: Server-  
+```
+
+**Zuul高可用**
+
+Zuul的高可用非常关键，因为外部请求到后端微服务的流量都会经过Zuul，故而发生在生产环境中一般都需要部署高可用的Zuul以避免单点故障。分两种情况讨论高可用情况：
+
+**Zuul客户端也注册到了Eureka Server**
+
+这种情况下比较简单，直接将多个节点注册到Eureka Server上就可以实现其高可用。Eureka Server会自动从列表查询Zuul Server列表，并使用Ribbon负载均衡地请求Zuul集群。
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
