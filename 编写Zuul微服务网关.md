@@ -719,3 +719,21 @@ zuul:
 
 :arrow_up:[返回目录](#t)
 
+在之前打开的Hystrix监控界面我们看到的内容如下：
+
+![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a10.png)
+
+这是由于默认情况下Zuul的Hystrix隔离策略是SEMAPHORE,可以使用：
+
+```
+zuul:
+  ribbon-isolation-strategy: thread
+```
+
+配置可以将策略改为 thread，这样就可以看到Pool一栏的数据了。
+
+![](https://github.com/Lumnca/Spring-Cloud/blob/master/img/a9.png)
+
+
+
+
