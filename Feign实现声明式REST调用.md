@@ -41,6 +41,57 @@ Spring Cloud对Feign进行了增强，使Feign支持了Spring MVC注解，并整
         </dependency>
 ```
 
+**由于目前自动验证版本失效！，需要手动添加版本** 可以使用2.1.0.RELEASE 版本！
+
+```xml
+ <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.1.0.RELEASE</version>
+    </parent>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+            <version>2.1.0.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.58</version>
+        </dependency>
+
+    </dependencies>
+<!--Spring boot 对应Cloud版本 -->
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-dependencies</artifactId>
+            <version>Greenwich.RELEASE</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+```
+
 创建Feign接口：
 
 ```java
@@ -48,6 +99,18 @@ Spring Cloud对Feign进行了增强，使Feign支持了Spring MVC注解，并整
 //这里提供了url参数是由于客户端没注册到Eureka Server上，如果注册到了上面，可以不写这个参数，直接提供name 属性即可。
 public interface UserFeignClient {
     @RequestMapping(value = "{id}",method = RequestMethod.GET)
+     User findById(@PathVariable("id") Integer id);
+}
+```
+
+这样的接口就会被创建为`http://localhost:8080/users?id=xx` ，如果想访问某个服务的某个API接口可以如下：
+
+```java
+@FeignClient(name = "UserServer",url = "http://localhost:8080/users")
+//这里提供了url参数是由于客户端没注册到Eureka Server上，如果注册到了上面，可以不写这个参数，直接提供name 属性即可。
+public interface UserFeignClient {
+    //在对应的服务器上有/hello接口
+    @RequestMapping(value = "/hello",method = RequestMethod.GET)  
      User findById(@PathVariable("id") Integer id);
 }
 ```
@@ -66,9 +129,10 @@ public class index {
 }
 ```
 
-修改启动类,开启@EnableFeignClients注解：
+修改启动类,开启@EnableFeignClients注解和@EnableDiscoveryClient 扫描注解：
 
 ```java
+@EnableDiscoveryClient
 @SpringBootApplication
 @EnableFeignClients
 public class start {
