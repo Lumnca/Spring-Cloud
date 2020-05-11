@@ -93,6 +93,30 @@
 
 值得注意的是Spring Cloud要与Spring Boot版本对应才行，对于Spring Boot在2.0.x以上的版本来说需要使用的是`<version>Finchley.SR3</version>`对于1.5.x的是`<version>Edgware.RELEASE</version>`.
 
+版本对应是一个非常重要的问题所以要一一对应！ 如果你不知道具体版本可以如下：
+
+```
+    <dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-dependencies</artifactId>
+            <version>Greenwich.RELEASE</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
+目前对应关系，可以网上查询到
+
+|Spring Boot 版本 | 版本号|
+|:--:|:---:|
+|2.1.x|Greenwich|
+|2.0.x|Finchley|
+|1.5.x|Edgware|
+
+
 基础的使用Spring Boot，这里使用了jpa整合mysql。还添加了cloud的依赖和maven插件。
 
 添加数据配置信息：
